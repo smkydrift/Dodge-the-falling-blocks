@@ -1,18 +1,20 @@
 import pygame
 import random
+import sys
 
 # Initialize pygame
 pygame.init()
 
 # Game settings
 WIDTH, HEIGHT = 800, 600
-PLAYER_SPEED = 10
+PLAYER_SPEED = 5
 ENEMY_SPEED = 2  # Initial enemy speed
-ENEMY_ACCELERATION = 0.5  # Speed increase per score
+ENEMY_ACCELERATION = 0.2  # Speed increase per score
 NEW_ENEMY_THRESHOLD = 5  # Add a new enemy every 5 points
 
 # Colors
 WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
 COLORS = {
     "blue": (0, 0, 200),
     "red": (200, 0, 0),
@@ -29,27 +31,55 @@ SHAPES = ["rectangle", "circle", "triangle", "star", "hexagon"]
 
 # Create the game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Pygame - Dodge the falling blocks")
+pygame.display.set_caption("Pygame - Choose Shape & Color")
 
 # Font setup
 pygame.font.init()
 font = pygame.font.Font(None, 48)
+title_font = pygame.font.Font(None, 64)  # Larger font for titles
 
 # Clock for controlling frame rate
 clock = pygame.time.Clock()
 
+# Load sounds
+pygame.mixer.init()
+collision_sound = pygame.mixer.Sound("mixkit-player-losing-or-failing-2042.wav")  # Replace with your sound file
+score_sound = pygame.mixer.Sound("mixkit-winning-a-coin-video-game-2069.wav")  # Replace with your sound file
+menu_music = pygame.mixer.Sound("The Adventure Begins 8-bit remix.wav")  # Replace with your menu music file
+game_music = pygame.mixer.Sound("06. Spring (The Valley Comes Alive).wav")  # Replace with your game music file
 
-def draw_text(text, size, x, y):
+# Play menu music
+menu_music.play(-1)  # Loop indefinitely
+
+
+def draw_text(text, size, x, y, color=BLACK, font_type=None):
     """Function to draw text on the screen."""
-    font = pygame.font.Font(None, size)
-    text_surface = font.render(text, True, (0, 0, 0))
+    if font_type is None:
+        font_type = pygame.font.Font(None, size)
+    text_surface = font_type.render(text, True, color)
     screen.blit(text_surface, (x, y))
+
+
+def draw_button(text, x, y, width, height, color, hover_color, action=None):
+    """Function to draw a button with hover effect."""
+    mouse_pos = pygame.mouse.get_pos()
+    clicked = pygame.mouse.get_pressed()
+
+    # Smooth hover effect
+    if x + width > mouse_pos[0] > x and y + height > mouse_pos[1] > y:
+        pygame.draw.rect(screen, hover_color, (x, y, width, height), border_radius=10)
+        if clicked[0] == 1 and action is not None:
+            action()
+    else:
+        pygame.draw.rect(screen, color, (x, y, width, height), border_radius=10)
+
+    draw_text(text, 36, x + 10, y + 10, WHITE)
 
 
 def draw_shape(shape, color, rect):
     """Function to draw different shapes."""
     if shape == "rectangle":
-        pygame.draw.rect(screen, color, rect)
+        pygame.draw.rect(screen, color, rect, border_radius=10)
     elif shape == "circle":
         pygame.draw.ellipse(screen, color, rect)
     elif shape == "triangle":
@@ -88,30 +118,61 @@ def draw_shape(shape, color, rect):
         )
 
 
+def fade_in():
+    """Fade-in effect for transitions."""
+    fade_surface = pygame.Surface((WIDTH, HEIGHT))
+    fade_surface.fill(BLACK)
+    for alpha in range(0, 255, 5):
+        fade_surface.set_alpha(alpha)
+        screen.blit(fade_surface, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(30)
+
+
+def fade_out():
+    """Fade-out effect for transitions."""
+    fade_surface = pygame.Surface((WIDTH, HEIGHT))
+    fade_surface.fill(BLACK)
+    for alpha in range(255, 0, -5):
+        fade_surface.set_alpha(alpha)
+        screen.blit(fade_surface, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(30)
+
+
 def pause_menu():
     """Pause menu where player can resume, restart, or quit."""
     paused = True
+    game_music.stop()  # Stop game music when paused
     while paused:
         screen.fill(WHITE)
-        draw_text("Game Paused", 50, WIDTH // 3, HEIGHT // 4)
-        draw_text("Press P to Resume", 40, WIDTH // 3, HEIGHT // 3)
-        draw_text("Press R to Restart", 40, WIDTH // 3, HEIGHT // 2.5)
-        draw_text("Press ESC to Quit", 40, WIDTH // 3, HEIGHT // 2)
+        draw_text("Game Paused", 64, WIDTH // 3, HEIGHT // 4, BLACK, title_font)
+
+        def resume():
+            nonlocal paused
+            paused = False
+            game_music.play(-1)  # Resume game music
+
+        def restart():
+            nonlocal paused
+            paused = False
+            game_music.stop()  # Stop game music when restarting
+            return "restart"
+
+        def quit_game():
+            pygame.quit()
+            sys.exit()
+
+        draw_button("Resume", WIDTH // 3, HEIGHT // 3, 200, 50, (0, 200, 0), (0, 255, 0), resume)
+        draw_button("Restart", WIDTH // 3, HEIGHT // 2, 200, 50, (200, 200, 0), (255, 255, 0), restart)
+        draw_button("Quit", WIDTH // 3, HEIGHT // 1.5, 200, 50, (200, 0, 0), (255, 0, 0), quit_game)
 
         pygame.display.flip()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_p:  # Resume game
-                    paused = False
-                if event.key == pygame.K_r:  # Restart game
-                    return "restart"
-                if event.key == pygame.K_ESCAPE:  # Quit game
-                    pygame.quit()
-                    exit()
+                sys.exit()
 
 
 def main_menu():
@@ -122,8 +183,6 @@ def main_menu():
     waiting = True
     while waiting:
         screen.fill(WHITE)
-
-        # Display options
         draw_text("Choose Shape (← →)", 40, WIDTH // 3, HEIGHT // 4)
         draw_text("Choose Color (1-0)", 40, WIDTH // 3, HEIGHT // 3)
 
@@ -134,19 +193,19 @@ def main_menu():
         # Show color choices
         color_keys = list(COLORS.keys())
         for i, color in enumerate(color_keys):
-            pygame.draw.rect(screen, COLORS[color], (WIDTH // 3 + i * 60, HEIGHT // 3 + 120, 50, 50))
+            pygame.draw.rect(screen, COLORS[color], (WIDTH // 3 + i * 60, HEIGHT // 3 + 120, 50, 50), border_radius=10)
             if color == selected_color:
-                pygame.draw.rect(screen, (0, 0, 0), (WIDTH // 3 + i * 60, HEIGHT // 3 + 120, 50, 50), 3)
+                pygame.draw.rect(screen, BLACK, (WIDTH // 3 + i * 60, HEIGHT // 3 + 120, 50, 50), 3, border_radius=10)
 
         # Show start text
-        draw_text("Press SPACE to Start", 40, WIDTH // 3, HEIGHT // 1.5)
+        draw_text("Press SPACE to Start", 40, WIDTH // 3, HEIGHT // 2)
 
         pygame.display.flip()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
                     selected_shape = (selected_shape - 1) % len(SHAPES)
@@ -155,6 +214,7 @@ def main_menu():
                 if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0]:
                     selected_color = color_keys[event.key - pygame.K_1]
                 if event.key == pygame.K_SPACE:
+                    menu_music.stop()  # Stop menu music when game starts
                     waiting = False  # Exit menu and start game
 
     return SHAPES[selected_shape], COLORS[selected_color]  # Return chosen shape & color
@@ -173,6 +233,9 @@ def game_loop(player_shape, player_color):
     ENEMY_SPEED = 2  # Reset enemy speed
     game_over = False
 
+    # Play game music
+    game_music.play(-1)  # Loop indefinitely
+
     running = True
     while running:
         screen.fill(WHITE)
@@ -181,11 +244,12 @@ def game_loop(player_shape, player_color):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:  # Pause the game
                     action = pause_menu()
                     if action == "restart":
+                        game_music.stop()  # Stop game music when restarting
                         return  # Restart game
 
         # Player movement
@@ -202,6 +266,7 @@ def game_loop(player_shape, player_color):
             # Reset enemy when reaching bottom
             if enemy["rect"].y > HEIGHT:
                 score += 1  # Increase score
+                score_sound.play()  # Play score sound
                 enemy["rect"].x = random.randint(0, WIDTH - 50)  # Reset position
                 enemy["rect"].y = 0  
                 enemy["shape"] = random.choice(SHAPES)  # Change shape
@@ -214,6 +279,8 @@ def game_loop(player_shape, player_color):
 
             # Collision detection
             if player.colliderect(enemy["rect"]):
+                collision_sound.play()  # Play collision sound
+                game_music.stop()  # Stop game music when losing
                 game_over = True
                 running = False
 
@@ -240,8 +307,17 @@ def game_over_screen(score):
     screen.fill(WHITE)
     draw_text("Game Over", 50, WIDTH // 3, HEIGHT // 4)
     draw_text(f"Final Score: {score}", 40, WIDTH // 3, HEIGHT // 3)
-    draw_text("Press R to Restart", 40, WIDTH // 3, HEIGHT // 2.5)
-    draw_text("Press ESC to Quit", 40, WIDTH // 3, HEIGHT // 2)
+
+    def restart():
+        game_music.stop()  # Stop game music when restarting
+        main_menu()  # Return to main menu
+
+    def quit_game():
+        pygame.quit()
+        sys.exit()
+
+    draw_button("Restart", WIDTH // 3, HEIGHT // 2, 200, 50, (0, 200, 0), (0, 255, 0), restart)
+    draw_button("Quit", WIDTH // 3, HEIGHT // 1.5, 200, 50, (200, 0, 0), (255, 0, 0), quit_game)
 
     pygame.display.flip()
 
@@ -250,16 +326,15 @@ def game_over_screen(score):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:  # Restart game
-                    waiting = False
-                if event.key == pygame.K_ESCAPE:  # Quit game
-                    pygame.quit()
-                    exit()
+                sys.exit()
 
 
-# Run the game
-while True:
-    chosen_shape, chosen_color = main_menu()  # Let player choose shape & color
-    game_loop(chosen_shape, chosen_color)
+def main():
+    """Main function to run the game."""
+    while True:
+        chosen_shape, chosen_color = main_menu()  # Let player choose shape & color
+        game_loop(chosen_shape, chosen_color)
+
+
+if __name__ == "__main__":
+    main()
