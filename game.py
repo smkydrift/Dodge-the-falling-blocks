@@ -6,10 +6,9 @@ pygame.init()
 
 # Game settings
 WIDTH, HEIGHT = 800, 600
-PLAYER_SPEED = 2
-PLAYER_ACCELERATION = 0.5
-ENEMY_SPEED = 5  # Initial enemy speed
-ENEMY_ACCELERATION = 0.5   # Speed increase per score
+PLAYER_SPEED = 10
+ENEMY_SPEED = 2  # Initial enemy speed
+ENEMY_ACCELERATION = 0.5  # Speed increase per score
 NEW_ENEMY_THRESHOLD = 5  # Add a new enemy every 5 points
 
 # Colors
@@ -19,13 +18,18 @@ COLORS = {
     "red": (200, 0, 0),
     "green": (0, 200, 0),
     "yellow": (200, 200, 0),
-    "purple": (150, 0, 150)
+    "purple": (150, 0, 150),
+    "orange": (255, 165, 0),
+    "pink": (255, 192, 203),
+    "cyan": (0, 255, 255),
+    "brown": (165, 42, 42),
+    "gray": (128, 128, 128)
 }
-SHAPES = ["rectangle", "circle", "triangle"]
+SHAPES = ["rectangle", "circle", "triangle", "star", "hexagon"]
 
 # Create the game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Pygame - Dodge the blocks")
+pygame.display.set_caption("Pygame - Dodge the falling blocks")
 
 # Font setup
 pygame.font.init()
@@ -55,6 +59,32 @@ def draw_shape(shape, color, rect):
             [(rect.x + rect.width // 2, rect.y),  # Top
              (rect.x, rect.y + rect.height),  # Bottom left
              (rect.x + rect.width, rect.y + rect.height)]  # Bottom right
+        )
+    elif shape == "star":
+        pygame.draw.polygon(
+            screen,
+            color,
+            [(rect.x + rect.width // 2, rect.y),  # Top
+             (rect.x + rect.width * 0.4, rect.y + rect.height * 0.4),  # Left middle
+             (rect.x, rect.y + rect.height * 0.4),  # Left top
+             (rect.x + rect.width * 0.3, rect.y + rect.height * 0.6),  # Left bottom
+             (rect.x + rect.width * 0.2, rect.y + rect.height),  # Bottom left
+             (rect.x + rect.width // 2, rect.y + rect.height * 0.7),  # Bottom middle
+             (rect.x + rect.width * 0.8, rect.y + rect.height),  # Bottom right
+             (rect.x + rect.width * 0.7, rect.y + rect.height * 0.6),  # Right bottom
+             (rect.x + rect.width, rect.y + rect.height * 0.4),  # Right top
+             (rect.x + rect.width * 0.6, rect.y + rect.height * 0.4)]  # Right middle
+        )
+    elif shape == "hexagon":
+        pygame.draw.polygon(
+            screen,
+            color,
+            [(rect.x + rect.width * 0.25, rect.y),  # Top left
+             (rect.x + rect.width * 0.75, rect.y),  # Top right
+             (rect.x + rect.width, rect.y + rect.height * 0.5),  # Right middle
+             (rect.x + rect.width * 0.75, rect.y + rect.height),  # Bottom right
+             (rect.x + rect.width * 0.25, rect.y + rect.height),  # Bottom left
+             (rect.x, rect.y + rect.height * 0.5)]  # Left middle
         )
 
 
@@ -86,7 +116,7 @@ def pause_menu():
 
 def main_menu():
     """Function for the main menu where player chooses color and shape."""
-    selected_shape = 0  # 0: rectangle, 1: circle, 2: triangle
+    selected_shape = 0  # 0: rectangle, 1: circle, 2: triangle, 3: star, 4: hexagon
     selected_color = "blue"  # Default color
 
     waiting = True
@@ -95,8 +125,7 @@ def main_menu():
 
         # Display options
         draw_text("Choose Shape (← →)", 40, WIDTH // 3, HEIGHT // 4)
-        draw_text("Choose Color (1-5)", 40, WIDTH // 3, HEIGHT // 3)
-        draw_text("Press SPACE to Start", 40, WIDTH // 3, HEIGHT // 1.5)
+        draw_text("Choose Color (1-0)", 40, WIDTH // 3, HEIGHT // 3)
 
         # Show shape preview
         shape_rect = pygame.Rect(WIDTH // 2 - 25, HEIGHT // 3 + 50, 50, 50)
@@ -109,6 +138,9 @@ def main_menu():
             if color == selected_color:
                 pygame.draw.rect(screen, (0, 0, 0), (WIDTH // 3 + i * 60, HEIGHT // 3 + 120, 50, 50), 3)
 
+        # Show start text
+        draw_text("Press SPACE to Start", 40, WIDTH // 3, HEIGHT // 1.5)
+
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -120,7 +152,7 @@ def main_menu():
                     selected_shape = (selected_shape - 1) % len(SHAPES)
                 if event.key == pygame.K_RIGHT:
                     selected_shape = (selected_shape + 1) % len(SHAPES)
-                if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5]:
+                if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0]:
                     selected_color = color_keys[event.key - pygame.K_1]
                 if event.key == pygame.K_SPACE:
                     waiting = False  # Exit menu and start game
@@ -139,6 +171,7 @@ def game_loop(player_shape, player_color):
     ]
     score = 0
     ENEMY_SPEED = 2  # Reset enemy speed
+    game_over = False
 
     running = True
     while running:
@@ -181,6 +214,7 @@ def game_loop(player_shape, player_color):
 
             # Collision detection
             if player.colliderect(enemy["rect"]):
+                game_over = True
                 running = False
 
         # Draw player
@@ -197,7 +231,32 @@ def game_loop(player_shape, player_color):
         pygame.display.flip()
         clock.tick(30)
 
-    game_over_screen(score)  # Show game over screen after losing
+    if game_over:
+        game_over_screen(score)  # Show game over screen after losing
+
+
+def game_over_screen(score):
+    """Display game over screen with score."""
+    screen.fill(WHITE)
+    draw_text("Game Over", 50, WIDTH // 3, HEIGHT // 4)
+    draw_text(f"Final Score: {score}", 40, WIDTH // 3, HEIGHT // 3)
+    draw_text("Press R to Restart", 40, WIDTH // 3, HEIGHT // 2.5)
+    draw_text("Press ESC to Quit", 40, WIDTH // 3, HEIGHT // 2)
+
+    pygame.display.flip()
+
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:  # Restart game
+                    waiting = False
+                if event.key == pygame.K_ESCAPE:  # Quit game
+                    pygame.quit()
+                    exit()
 
 
 # Run the game
